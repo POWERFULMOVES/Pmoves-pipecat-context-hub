@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,7 +17,6 @@ from pipecat_context_hub.services.ingest.taxonomy import (
     _infer_tags_from_readme,
 )
 from pipecat_context_hub.shared.types import CapabilityTag, TaxonomyEntry
-
 
 # ---------------------------------------------------------------------------
 # Fixtures — temp directory structures mimicking real repos
@@ -60,8 +61,7 @@ def foundational_dir(tmp_path: Path) -> Path:
     ex13 = base / "13-whisper"
     ex13.mkdir(parents=True)
     (ex13 / "bot.py").write_text(
-        "from pipecat.services.whisper import WhisperSTTService\n"
-        "stt = WhisperSTTService()\n"
+        "from pipecat.services.whisper import WhisperSTTService\nstt = WhisperSTTService()\n"
     )
 
     return base
@@ -115,10 +115,7 @@ def full_repo_dir(tmp_path: Path) -> Path:
     base = tmp_path / "examples" / "foundational"
     ex = base / "01-hello"
     ex.mkdir(parents=True)
-    (ex / "bot.py").write_text(
-        "from pipecat.pipeline.pipeline import Pipeline\n"
-        "Pipeline()\n"
-    )
+    (ex / "bot.py").write_text("from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n")
     return tmp_path
 
 
@@ -186,7 +183,11 @@ class TestInferTagsFromCode:
         assert "elevenlabs" in names
         assert "deepgram" in names
         assert all(t.source == "code" for t in tags)
-        assert all(t.confidence == 0.9 for t in tags if t.source == "code" and t.name in ("elevenlabs", "deepgram"))
+        assert all(
+            t.confidence == 0.9
+            for t in tags
+            if t.source == "code" and t.name in ("elevenlabs", "deepgram")
+        )
 
     def test_class_references(self):
         code = "pipeline = Pipeline()\ntts = SomeTTSService()\n"
@@ -347,9 +348,7 @@ class TestTaxonomyBuilderFoundational:
 
     def test_commit_sha_propagated(self, foundational_dir: Path):
         builder = TaxonomyBuilder()
-        entries = builder.build_from_foundational(
-            foundational_dir, commit_sha="abc123"
-        )
+        entries = builder.build_from_foundational(foundational_dir, commit_sha="abc123")
         for entry in entries:
             assert entry.commit_sha == "abc123"
 
@@ -404,8 +403,7 @@ class TestTaxonomyBuilderFlatFoundational:
             "    pass\n"
         )
         (base / "13-whisper.py").write_text(
-            "from pipecat.services.whisper import WhisperSTTService\n"
-            "stt = WhisperSTTService()\n"
+            "from pipecat.services.whisper import WhisperSTTService\nstt = WhisperSTTService()\n"
         )
         return base
 
@@ -563,9 +561,7 @@ class TestBuildEntryForRepoRoot:
     def test_readme_captured(self, tmp_path: Path):
         """Root README is captured in the entry."""
         (tmp_path / "main.py").write_text("pass\n")
-        (tmp_path / "README.md").write_text(
-            "# My Bot\n\nA voice agent for local use.\n"
-        )
+        (tmp_path / "README.md").write_text("# My Bot\n\nA voice agent for local use.\n")
         builder = TaxonomyBuilder()
         entry = builder.build_entry_for_repo_root(tmp_path, repo="org/repo")
         assert entry.readme_content is not None
@@ -582,9 +578,7 @@ class TestBuildEntryForRepoRoot:
     def test_commit_sha_propagated(self, tmp_path: Path):
         (tmp_path / "main.py").write_text("pass\n")
         builder = TaxonomyBuilder()
-        entry = builder.build_entry_for_repo_root(
-            tmp_path, repo="org/repo", commit_sha="abc123"
-        )
+        entry = builder.build_entry_for_repo_root(tmp_path, repo="org/repo", commit_sha="abc123")
         assert entry.commit_sha == "abc123"
 
 
@@ -615,8 +609,7 @@ class TestTaxonomyBuilderMixedLayout:
         foundational = tmp_path / "examples" / "foundational" / "01-hello"
         foundational.mkdir(parents=True)
         (foundational / "bot.py").write_text(
-            "from pipecat.pipeline.pipeline import Pipeline\n"
-            "Pipeline()\n"
+            "from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n"
         )
         (foundational / "README.md").write_text("# Hello\n\nA hello example.\n")
 
@@ -627,9 +620,7 @@ class TestTaxonomyBuilderMixedLayout:
             "from pipecat.services.openai import OpenAILLMService\n"
             "from pipecat.services.deepgram import DeepgramSTTService\n"
         )
-        (quickstart / "README.md").write_text(
-            "# Quickstart\n\nGet started quickly with Pipecat.\n"
-        )
+        (quickstart / "README.md").write_text("# Quickstart\n\nGet started quickly with Pipecat.\n")
 
         # Non-foundational sibling: websocket-demo
         ws = tmp_path / "examples" / "websocket-demo"
@@ -711,8 +702,7 @@ class TestTaxonomyBuilderMixedLayout:
         for ex_dir in example_dirs:
             rel_path = ex_dir.relative_to(mixed_repo_dir).as_posix()
             assert rel_path in lookup, (
-                f"Taxonomy has no entry for {rel_path!r}; "
-                f"available: {sorted(lookup.keys())}"
+                f"Taxonomy has no entry for {rel_path!r}; available: {sorted(lookup.keys())}"
             )
 
 
@@ -782,23 +772,17 @@ class TestTaxonomyBuilderQueryMethods:
         builder.clear()
         assert builder.entries == []
 
-    def test_accumulates_across_builds(
-        self, foundational_dir: Path, examples_repo_dir: Path
-    ):
+    def test_accumulates_across_builds(self, foundational_dir: Path, examples_repo_dir: Path):
         builder = TaxonomyBuilder()
         builder.build_from_foundational(foundational_dir)
         builder.build_from_examples_repo(examples_repo_dir)
         # 3 foundational + 2 examples
         assert len(builder.entries) == 5
 
-    def test_query_by_tag_across_repos(
-        self, foundational_dir: Path, examples_repo_dir: Path
-    ):
+    def test_query_by_tag_across_repos(self, foundational_dir: Path, examples_repo_dir: Path):
         builder = TaxonomyBuilder()
         builder.build_from_foundational(foundational_dir, repo="pipecat-ai/pipecat")
-        builder.build_from_examples_repo(
-            examples_repo_dir, repo="pipecat-ai/pipecat-examples"
-        )
+        builder.build_from_examples_repo(examples_repo_dir, repo="pipecat-ai/pipecat-examples")
 
         # "openai" should appear in both repos
         results = builder.query_by_tag("openai")
@@ -845,23 +829,17 @@ class TestTaxonomyBuilderTopicLayout:
         # function-calling/calendar — second subdir example under same topic
         cal = examples / "function-calling" / "calendar"
         cal.mkdir(parents=True)
-        (cal / "bot.py").write_text(
-            "from pipecat.services.openai import OpenAILLMService\n"
-        )
+        (cal / "bot.py").write_text("from pipecat.services.openai import OpenAILLMService\n")
 
         # transports/daily-demo — subdir example under a different topic
         tr = examples / "transports" / "daily-demo"
         tr.mkdir(parents=True)
-        (tr / "bot.py").write_text(
-            "from pipecat.transports.daily import DailyTransport\n"
-        )
+        (tr / "bot.py").write_text("from pipecat.transports.daily import DailyTransport\n")
 
         # realtime/voice-agent — yet another topic
         rt = examples / "realtime" / "voice-agent"
         rt.mkdir(parents=True)
-        (rt / "main.py").write_text(
-            "from pipecat.services.cartesia import CartesiaTTSService\n"
-        )
+        (rt / "main.py").write_text("from pipecat.services.cartesia import CartesiaTTSService\n")
 
         return tmp_path
 
@@ -878,20 +856,13 @@ class TestTaxonomyBuilderTopicLayout:
         # getting-started/ with flat code files at its root — topic is the example
         gs = examples / "getting-started"
         gs.mkdir(parents=True)
-        (gs / "hello.py").write_text(
-            "from pipecat.pipeline.pipeline import Pipeline\n"
-            "Pipeline()\n"
-        )
-        (gs / "README.md").write_text(
-            "# Getting Started\n\nQuickstart snippets.\n"
-        )
+        (gs / "hello.py").write_text("from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n")
+        (gs / "README.md").write_text("# Getting Started\n\nQuickstart snippets.\n")
 
         # audio/echo-bot — standard subdir-style example under a sibling topic
         au = examples / "audio" / "echo-bot"
         au.mkdir(parents=True)
-        (au / "bot.py").write_text(
-            "from pipecat.services.deepgram import DeepgramSTTService\n"
-        )
+        (au / "bot.py").write_text("from pipecat.services.deepgram import DeepgramSTTService\n")
 
         return tmp_path
 
@@ -903,9 +874,7 @@ class TestTaxonomyBuilderTopicLayout:
 
         chatbot = root / "chatbot"
         chatbot.mkdir()
-        (chatbot / "main.py").write_text(
-            "from pipecat.services.openai import OpenAILLMService\n"
-        )
+        (chatbot / "main.py").write_text("from pipecat.services.openai import OpenAILLMService\n")
         (chatbot / "README.md").write_text("# Chatbot\n\nA chatbot.\n")
 
         story = root / "storytelling"
@@ -923,20 +892,15 @@ class TestTaxonomyBuilderTopicLayout:
         root.mkdir()
         # Some code lives at the root, but there is no examples/ dir.
         (root / "main.py").write_text(
-            "from pipecat.pipeline.pipeline import Pipeline\n"
-            "Pipeline()\n"
+            "from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n"
         )
         return root
 
     # -- (a) topic-based tree with subdir examples under multiple topics ---
 
-    def test_topic_layout_produces_entries_for_each_subdir(
-        self, topic_repo_dir: Path
-    ):
+    def test_topic_layout_produces_entries_for_each_subdir(self, topic_repo_dir: Path):
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            topic_repo_dir, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(topic_repo_dir, repo="pipecat-ai/pipecat")
         paths = {e.path for e in entries}
         # One entry per example dir under each topic.
         assert "examples/function-calling/weather" in paths
@@ -944,14 +908,10 @@ class TestTaxonomyBuilderTopicLayout:
         assert "examples/transports/daily-demo" in paths
         assert "examples/realtime/voice-agent" in paths
 
-    def test_topic_layout_paths_are_relative_to_repo_root(
-        self, topic_repo_dir: Path
-    ):
+    def test_topic_layout_paths_are_relative_to_repo_root(self, topic_repo_dir: Path):
         """Every entry.path must equal ex_dir.relative_to(repo_root).as_posix()."""
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            topic_repo_dir, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(topic_repo_dir, repo="pipecat-ai/pipecat")
         for entry in entries:
             full = topic_repo_dir / entry.path
             assert full.is_dir(), f"entry.path {entry.path!r} does not resolve"
@@ -959,17 +919,13 @@ class TestTaxonomyBuilderTopicLayout:
 
     def test_topic_layout_foundational_class_is_none(self, topic_repo_dir: Path):
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            topic_repo_dir, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(topic_repo_dir, repo="pipecat-ai/pipecat")
         for entry in entries:
             assert entry.foundational_class is None
 
     def test_topic_layout_capability_tags_non_empty(self, topic_repo_dir: Path):
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            topic_repo_dir, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(topic_repo_dir, repo="pipecat-ai/pipecat")
         for entry in entries:
             assert entry.capabilities, (
                 f"Entry {entry.path!r} must carry at least one capability tag"
@@ -982,9 +938,7 @@ class TestTaxonomyBuilderTopicLayout:
         as a single-tag value. Known compound topics may expand.
         """
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            topic_repo_dir, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(topic_repo_dir, repo="pipecat-ai/pipecat")
         by_path = {e.path: e for e in entries}
 
         tr_tags = {t.name for t in by_path["examples/transports/daily-demo"].capabilities}
@@ -996,9 +950,7 @@ class TestTaxonomyBuilderTopicLayout:
 
     # -- (b) topic-based tree where a topic contains flat .py files --------
 
-    def test_flat_topic_dir_itself_becomes_the_example(
-        self, topic_repo_with_flat_topic_dir: Path
-    ):
+    def test_flat_topic_dir_itself_becomes_the_example(self, topic_repo_with_flat_topic_dir: Path):
         builder = TaxonomyBuilder()
         entries = builder.build_from_directory(
             topic_repo_with_flat_topic_dir, repo="pipecat-ai/pipecat"
@@ -1009,9 +961,7 @@ class TestTaxonomyBuilderTopicLayout:
         # audio/echo-bot is a nested subdir example
         assert "examples/audio/echo-bot" in paths
 
-    def test_flat_topic_dir_entry_has_capabilities(
-        self, topic_repo_with_flat_topic_dir: Path
-    ):
+    def test_flat_topic_dir_entry_has_capabilities(self, topic_repo_with_flat_topic_dir: Path):
         builder = TaxonomyBuilder()
         entries = builder.build_from_directory(
             topic_repo_with_flat_topic_dir, repo="pipecat-ai/pipecat"
@@ -1024,17 +974,13 @@ class TestTaxonomyBuilderTopicLayout:
 
     # -- (c) legacy foundational/ tree still works unchanged ---------------
 
-    def test_legacy_foundational_layout_unchanged(
-        self, foundational_dir: Path
-    ):
+    def test_legacy_foundational_layout_unchanged(self, foundational_dir: Path):
         """Legacy ``examples/foundational/`` tree keeps producing the same
         foundational-class entries with unchanged path prefix and metadata.
         """
         repo_root = foundational_dir.parent.parent
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            repo_root, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(repo_root, repo="pipecat-ai/pipecat")
         assert len(entries) == 3
         for entry in entries:
             assert entry.path.startswith("examples/foundational/")
@@ -1050,23 +996,17 @@ class TestTaxonomyBuilderTopicLayout:
         # Foundational numbered example
         f = tmp_path / "examples" / "foundational" / "01-hello"
         f.mkdir(parents=True)
-        (f / "bot.py").write_text(
-            "from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n"
-        )
+        (f / "bot.py").write_text("from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n")
         (f / "README.md").write_text("# Hello\n\nHello example.\n")
 
         # v0.0.96-era sibling: simple-chatbot
         sc = tmp_path / "examples" / "simple-chatbot"
         sc.mkdir(parents=True)
-        (sc / "bot.py").write_text(
-            "from pipecat.services.openai import OpenAILLMService\n"
-        )
+        (sc / "bot.py").write_text("from pipecat.services.openai import OpenAILLMService\n")
         (sc / "README.md").write_text("# Simple Chatbot\n\nA simple chatbot.\n")
 
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            tmp_path, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(tmp_path, repo="pipecat-ai/pipecat")
 
         paths = {e.path for e in entries}
         assert "examples/foundational/01-hello" in paths
@@ -1097,9 +1037,7 @@ class TestTaxonomyBuilderTopicLayout:
         """
         builder = TaxonomyBuilder()
         # Must not raise
-        entries = builder.build_from_directory(
-            bare_repo_root, repo="org/bare-repo"
-        )
+        entries = builder.build_from_directory(bare_repo_root, repo="org/bare-repo")
         # Fallback is either empty or treats repo root as a single example
         # (existing behaviour via ``build_from_examples_repo``/root entry).
         # Whichever path is taken, no entry should claim an ``examples/`` path.
@@ -1113,7 +1051,8 @@ class TestTaxonomyBuilderTopicLayout:
     def test_lookup_key_parity_topic_layout(self, topic_repo_dir: Path):
         """Seam 1 contract: every dir returned by ``_discover_under_examples``
         must have a matching ``taxonomy_lookup[rel]`` entry built from the
-        builder output. This is the unit contract for Seam 1.
+        builder output. This is the unit contract for Seam 1 on the topic-layout
+        walk; the smoke invariants check the same contract over ``_find_example_dirs``.
         """
         from pipecat_context_hub.services.ingest.github_ingest import (
             _discover_under_examples,
@@ -1134,9 +1073,7 @@ class TestTaxonomyBuilderTopicLayout:
                 f"available keys: {sorted(taxonomy_lookup.keys())}"
             )
 
-    def test_lookup_key_parity_flat_topic_layout(
-        self, topic_repo_with_flat_topic_dir: Path
-    ):
+    def test_lookup_key_parity_flat_topic_layout(self, topic_repo_with_flat_topic_dir: Path):
         """Parity test (g) also covers the flat-topic-dir case."""
         from pipecat_context_hub.services.ingest.github_ingest import (
             _discover_under_examples,
@@ -1148,9 +1085,7 @@ class TestTaxonomyBuilderTopicLayout:
         )
         taxonomy_lookup = {e.path: e for e in entries}
 
-        discovered = _discover_under_examples(
-            topic_repo_with_flat_topic_dir / "examples"
-        )
+        discovered = _discover_under_examples(topic_repo_with_flat_topic_dir / "examples")
         assert discovered
         for ex_dir in discovered:
             rel = ex_dir.relative_to(topic_repo_with_flat_topic_dir).as_posix()
@@ -1167,19 +1102,13 @@ class TestTaxonomyBuilderTopicLayout:
 
         f = tmp_path / "examples" / "foundational" / "01-hello"
         f.mkdir(parents=True)
-        (f / "bot.py").write_text(
-            "from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n"
-        )
+        (f / "bot.py").write_text("from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n")
         sc = tmp_path / "examples" / "simple-chatbot"
         sc.mkdir(parents=True)
-        (sc / "bot.py").write_text(
-            "from pipecat.services.openai import OpenAILLMService\n"
-        )
+        (sc / "bot.py").write_text("from pipecat.services.openai import OpenAILLMService\n")
 
         builder = TaxonomyBuilder()
-        entries = builder.build_from_directory(
-            tmp_path, repo="pipecat-ai/pipecat"
-        )
+        entries = builder.build_from_directory(tmp_path, repo="pipecat-ai/pipecat")
         taxonomy_lookup = {e.path: e for e in entries}
 
         discovered = _discover_under_examples(tmp_path / "examples")
@@ -1205,9 +1134,7 @@ def test_no_junk_entries_from_repo_root(tmp_path: Path):
     src = tmp_path / "src" / "pkg"
     src.mkdir(parents=True)
     (src / "__init__.py").write_text("")
-    (src / "module.py").write_text(
-        "from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n"
-    )
+    (src / "module.py").write_text("from pipecat.pipeline.pipeline import Pipeline\nPipeline()\n")
 
     tests = tmp_path / "tests"
     tests.mkdir()
@@ -1219,9 +1146,7 @@ def test_no_junk_entries_from_repo_root(tmp_path: Path):
 
     foo = tmp_path / "examples" / "foo"
     foo.mkdir(parents=True)
-    (foo / "bot.py").write_text(
-        "from pipecat.services.openai import OpenAILLMService\n"
-    )
+    (foo / "bot.py").write_text("from pipecat.services.openai import OpenAILLMService\n")
     (foo / "README.md").write_text("# Foo\n\nFoo example.\n")
 
     builder = TaxonomyBuilder()
@@ -1239,9 +1164,7 @@ def test_no_junk_entries_from_repo_root(tmp_path: Path):
 
     # No junk entries for packaged-project sibling dirs.
     for junk in ("src", "tests", "docs"):
-        assert junk not in paths, (
-            f"Fallback emitted junk entry for {junk!r}; paths={sorted(paths)}"
-        )
+        assert junk not in paths, f"Fallback emitted junk entry for {junk!r}; paths={sorted(paths)}"
 
 
 class TestBuildFromExamplesRepoExampleMarkers:
@@ -1263,9 +1186,7 @@ class TestBuildFromExamplesRepoExampleMarkers:
         # Real example sibling
         real = root / "real-example"
         real.mkdir()
-        (real / "main.py").write_text(
-            "from pipecat.services.openai import OpenAILLMService\n"
-        )
+        (real / "main.py").write_text("from pipecat.services.openai import OpenAILLMService\n")
         (real / "README.md").write_text("# Real\n\nReal example.\n")
 
         # Non-example sibling dirs that Phase 2 should skip when
@@ -1301,8 +1222,7 @@ class TestBuildFromExamplesRepoExampleMarkers:
         assert "example-real-example" in ids
 
         # Well-known non-example dirs are skipped.
-        for junk in ("src", "tests", "docs", "scripts", "dashboard",
-                     ".github", ".claude"):
+        for junk in ("src", "tests", "docs", "scripts", "dashboard", ".github", ".claude"):
             assert f"example-{junk}" not in ids, (
                 f"{junk!r} must be skipped with require_example_markers=True"
             )
@@ -1348,3 +1268,268 @@ class TestTaxonomyEntryRoundTrip:
             json_str = entry.model_dump_json()
             rebuilt = TaxonomyEntry.model_validate_json(json_str)
             assert rebuilt == entry
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlink creation needs privileges on Windows")
+class TestSymlinkedPythonFiles:
+    """A committed symlink must never be read, and a dangling one must never abort a refresh.
+
+    Frozen from a live failure: an indexed repo committed
+    ``reports/.../diagnostic-candidate/model_config.py ->
+    /models/derived/model_config.py``, an absolute path that exists only on the
+    author's machine. ``read_text`` on it raised ``FileNotFoundError`` and took the
+    whole ``refresh`` down.
+    """
+
+    _CODE = "from pipecat.services.elevenlabs import ElevenLabsTTSService\n"
+
+    def _dangling(self, directory: Path) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "model_config.py").symlink_to("/models/derived/model_config.py")
+
+    def _code_tags(self, entry: TaxonomyEntry) -> set[str]:
+        return {t.name for t in entry.capabilities if t.source == "code"}
+
+    def test_dangling_symlink_in_a_root_level_example_does_not_abort(self, tmp_path: Path):
+        example = tmp_path / "my-example"
+        example.mkdir()
+        (example / "bot.py").write_text(
+            "from pipecat.services.deepgram import DeepgramSTTService\n"
+        )
+        self._dangling(example / "reports" / "diagnostic-candidate")
+
+        entries = TaxonomyBuilder().build_from_directory(tmp_path, repo="o/r", commit_sha="abc")
+
+        (entry,) = [e for e in entries if e.example_id == "example-my-example"]
+        assert "deepgram" in self._code_tags(entry)  # the real file is still scanned
+
+    def test_dangling_symlink_in_a_topic_example_does_not_abort(self, tmp_path: Path):
+        topic = tmp_path / "examples" / "voice"
+        example = topic / "agent"
+        example.mkdir(parents=True)
+        (example / "bot.py").write_text(
+            "from pipecat.services.deepgram import DeepgramSTTService\n"
+        )
+        self._dangling(example / "nested")
+
+        entries = TaxonomyBuilder().build_from_topic_dirs(tmp_path / "examples", repo="o/r")
+
+        assert any("deepgram" in self._code_tags(e) for e in entries)
+
+    def test_dangling_symlink_in_a_foundational_example_does_not_abort(self, tmp_path: Path):
+        example = tmp_path / "01-hello"
+        example.mkdir()
+        (example / "bot.py").write_text(self._CODE)
+        self._dangling(example)
+
+        (entry,) = TaxonomyBuilder().build_from_foundational(tmp_path, repo="o/r")
+
+        assert "elevenlabs" in self._code_tags(entry)
+
+    def test_a_valid_symlink_is_not_followed_either(self, tmp_path: Path):
+        outside = tmp_path / "outside.py"
+        outside.write_text(self._CODE)
+        example = tmp_path / "repo" / "my-example"
+        example.mkdir(parents=True)
+        (example / "bot.py").write_text("x = 1\n")
+        (example / "linked.py").symlink_to(outside)
+
+        entries = TaxonomyBuilder().build_from_directory(tmp_path / "repo", repo="o/r")
+
+        (entry,) = [e for e in entries if e.example_id == "example-my-example"]
+        assert "elevenlabs" not in self._code_tags(entry)
+
+    def test_a_symlink_into_an_untraversable_directory_does_not_abort(self, tmp_path: Path):
+        """``Path.is_file()`` follows the link and raises ``PermissionError`` on 3.11-3.13.
+
+        3.14 returns False; ``lstat`` never raises.
+        """
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            pytest.skip("root can traverse any directory")
+        locked = tmp_path / "locked"
+        locked.mkdir()
+        (locked / "secret.py").write_text(self._CODE)
+        example = tmp_path / "repo" / "my-example"
+        example.mkdir(parents=True)
+        (example / "bot.py").write_text("from pipecat.services.deepgram import X\n")
+        (example / "linked.py").symlink_to(locked / "secret.py")
+        (example / "README.md").symlink_to(locked / "secret.py")
+        locked.chmod(0)
+        try:
+            entries = TaxonomyBuilder().build_from_directory(tmp_path / "repo", repo="o/r")
+        finally:
+            locked.chmod(0o700)
+
+        (entry,) = [e for e in entries if e.example_id == "example-my-example"]
+        assert "deepgram" in self._code_tags(entry)
+        assert entry.readme_content is None
+        assert entry.key_files == ["bot.py"]
+
+    @pytest.mark.parametrize("layout", ["root", "topic", "foundational"])
+    def test_a_symlinked_readme_is_not_read(self, tmp_path: Path, layout: str):
+        """A README symlink would otherwise copy an outside file into ``readme_content``."""
+        outside = tmp_path / "outside.txt"
+        outside.write_text("# stolen\n\nlocal secret\n")
+        repo = tmp_path / "repo"
+        builder = TaxonomyBuilder()
+        if layout == "root":
+            example = repo / "my-example"
+        elif layout == "topic":
+            example = repo / "examples" / "voice" / "agent"
+        else:
+            example = repo / "01-hello"
+        example.mkdir(parents=True)
+        (example / "bot.py").write_text("x = 1\n")
+        (example / "README.md").symlink_to(outside)
+
+        if layout == "root":
+            entries = builder.build_from_directory(repo, repo="o/r")
+        elif layout == "topic":
+            entries = builder.build_from_topic_dirs(repo / "examples", repo="o/r")
+        else:
+            entries = builder.build_from_foundational(repo, repo="o/r")
+
+        (entry,) = entries
+        assert entry.readme_content is None
+        assert entry.summary == ""
+        assert "README.md" not in entry.key_files
+
+    def test_a_symlinked_flat_foundational_file_is_skipped(self, tmp_path: Path):
+        outside = tmp_path / "outside.py"
+        outside.write_text(self._CODE)
+        foundational = tmp_path / "foundational"
+        foundational.mkdir()
+        (foundational / "01-real.py").write_text("x = 1\n")
+        (foundational / "02-linked.py").symlink_to(outside)
+
+        entries = TaxonomyBuilder().build_from_foundational(foundational, repo="o/r")
+
+        assert [e.example_id for e in entries] == ["foundational-01-real"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlink creation needs privileges on Windows")
+class TestSymlinkedExampleDirectories:
+    """A committed directory symlink is never an example: its README and code stay unread.
+
+    Frozen from a security review: ``my-example -> /somewhere/outside`` was followed
+    by ``build_from_foundational`` and ``build_from_examples_repo``, so the outside
+    directory's ``README.md`` reached ``readme_content`` (returned by
+    ``get_example``) and its ``.py`` files fed the capability tags.
+    """
+
+    _SECRET = "TOP-SECRET-OUTSIDE-THE-CLONE"
+
+    def _outside(self, tmp_path: Path) -> Path:
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "README.md").write_text(self._SECRET + "\n")
+        (outside / "bot.py").write_text("from pipecat.services.elevenlabs import X\n")
+        return outside
+
+    def _assert_unread(self, entries: list[TaxonomyEntry], linked_id: str) -> None:
+        assert linked_id not in {e.example_id for e in entries}
+        for e in entries:
+            assert self._SECRET not in (e.readme_content or "")
+            assert "elevenlabs" not in {t.name for t in e.capabilities}
+
+    def test_examples_repo_layout(self, tmp_path: Path):
+        repo = tmp_path / "repo"
+        (repo / "real").mkdir(parents=True)
+        (repo / "real" / "bot.py").write_text("x = 1\n")
+        (repo / "linked").symlink_to(self._outside(tmp_path))
+
+        entries = TaxonomyBuilder().build_from_examples_repo(repo, repo="o/r")
+
+        assert [e.example_id for e in entries] == ["example-real"]
+        self._assert_unread(entries, "example-linked")
+
+    def test_foundational_layout(self, tmp_path: Path):
+        foundational = tmp_path / "foundational"
+        (foundational / "01-real").mkdir(parents=True)
+        (foundational / "01-real" / "bot.py").write_text("x = 1\n")
+        (foundational / "02-linked").symlink_to(self._outside(tmp_path))
+
+        entries = TaxonomyBuilder().build_from_foundational(foundational, repo="o/r")
+
+        assert [e.example_id for e in entries] == ["foundational-01-real"]
+        self._assert_unread(entries, "foundational-02-linked")
+
+    def test_topic_layout_through_build_from_directory(self, tmp_path: Path):
+        repo = tmp_path / "repo"
+        topic = repo / "examples" / "voice"
+        (topic / "real").mkdir(parents=True)
+        (topic / "real" / "bot.py").write_text("x = 1\n")
+        (topic / "linked").symlink_to(self._outside(tmp_path))
+
+        entries = TaxonomyBuilder().build_from_directory(repo, repo="o/r")
+
+        assert {e.example_id for e in entries if "linked" in e.example_id} == set()
+        self._assert_unread(entries, "voice-linked")
+
+    def test_symlinked_foundational_root_is_not_scanned(self, tmp_path: Path):
+        repo = tmp_path / "repo"
+        (repo / "examples").mkdir(parents=True)
+        outside = tmp_path / "outside-foundational"
+        (outside / "01-x").mkdir(parents=True)
+        (outside / "01-x" / "README.md").write_text(self._SECRET + "\n")
+        (repo / "examples" / "foundational").symlink_to(outside)
+
+        entries = TaxonomyBuilder().build_from_directory(repo, repo="o/r")
+
+        assert all(self._SECRET not in (e.readme_content or "") for e in entries)
+        assert not any(e.example_id.startswith("foundational-") for e in entries)
+
+    def test_symlinked_examples_dir_holding_foundational_is_not_scanned(self, tmp_path: Path):
+        """``examples/foundational`` is a real directory only *through* the link.
+
+        ``is_plain_dir`` inspects the last component alone, so ``examples`` itself must
+        be vetted first; otherwise its outside ``foundational/`` was scanned and read.
+        """
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        outside = tmp_path / "outside-examples"
+        (outside / "foundational" / "01-x").mkdir(parents=True)
+        (outside / "foundational" / "01-x" / "README.md").write_text(self._SECRET + "\n")
+        (outside / "foundational" / "01-x" / "bot.py").write_text(
+            "from pipecat.services.elevenlabs import X\n"
+        )
+        (repo / "examples").symlink_to(outside)
+
+        entries = TaxonomyBuilder().build_from_directory(repo, repo="o/r")
+
+        assert not any(e.example_id.startswith("foundational-") for e in entries)
+        self._assert_unread(entries, "foundational-01-x")
+
+    def test_symlinked_examples_dir_holding_topics_is_not_scanned(self, tmp_path: Path):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        outside = tmp_path / "outside-examples"
+        (outside / "voice" / "one").mkdir(parents=True)
+        (outside / "voice" / "one" / "README.md").write_text(self._SECRET + "\n")
+        (repo / "examples").symlink_to(outside)
+
+        entries = TaxonomyBuilder().build_from_directory(repo, repo="o/r")
+
+        assert not any(e.example_id.startswith("voice-") for e in entries)
+        self._assert_unread(entries, "voice-one")
+
+    def test_marker_links_in_the_repo_root_do_not_abort(self, tmp_path: Path):
+        """The packaged-project probe must not stat through ``src`` / ``pyproject.toml`` links."""
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            pytest.skip("root can traverse any directory")
+        locked = tmp_path / "locked"
+        locked.mkdir()
+        (locked / "pyproject.toml").write_text("[project]\n")
+        (locked / "src").mkdir()
+        repo = tmp_path / "repo"
+        (repo / "real").mkdir(parents=True)
+        (repo / "real" / "bot.py").write_text("x = 1\n")
+        (repo / "pyproject.toml").symlink_to(locked / "pyproject.toml")
+        (repo / "src").symlink_to(locked / "src")
+        locked.chmod(0)
+        try:
+            entries = TaxonomyBuilder().build_from_directory(repo, repo="o/r")
+        finally:
+            locked.chmod(0o700)
+
+        assert [e.example_id for e in entries] == ["example-real"]

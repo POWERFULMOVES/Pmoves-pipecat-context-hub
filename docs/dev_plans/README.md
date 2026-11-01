@@ -3,10 +3,21 @@
 ## Current Tasks
 | Date | Type | Name | Status | Assignee | Branch | Plan |
 |---|---|---|---|---|---|---|
+| 2026-10-15 | feature | Windows index locking: shared locks via `LockFileEx`, `--reset-index` vs running `serve`, Windows CI for the lock path | Planned (design notes) | vr000m | _(not started)_ | `20261015-feature-windows-index-locking.md` |
+| 2026-10-17 | feature | Repo catalog PR 1: catalog, generator and the `repos` command | Complete (signed off 2026-10-17; Phases 1, 2a-2d implemented; PR #144 merged) | vr000m | `feature/repo-catalog-pr1` | `20261017-feature-repo-catalog-pr1-catalog-and-repos.md` |
 
 ## Completed Tasks
 | Date | Type | Name | Status | Assignee | Branch | Plan |
 |---|---|---|---|---|---|---|
+| 2026-10-16 | feature | Repo catalog, `repos list/add/remove` and corpus hints for vendor/example questions | Complete (design of record, signed off 2026-10-17; delivered as two PRs via the two plans below, PR 1 merged (#144), PR 2 merged (#147); #145 follow-up: PR #151; identifier-aware corpus hints, #148: PR #152) | vr000m | `feature/repo-catalog-pr1` | `20261016-feature-repo-catalog-and-repos-command.md` |
+| 2026-10-18 | fix | `refresh` docs re-crawl no longer deletes README-fallback chunks (issue #146) | Complete (PR #150) | vr000m | fix/refresh-readme-chunks | _(no plan file)_ |
+| 2026-10-17 | feature | Repo catalog PR 2: indexed-repo status, corpus hints and catalog health (merges after PR 1) | Complete (phases 3a, 3b, 3c, 4, 5 and 4b implemented; merged as #147) | vr000m | `feature/repo-catalog-pr2` | `20261017-feature-repo-catalog-pr2-hints-and-health.md` |
+| 2026-10-14 | fix | Index write guards: post-write HNSW size check, refresh disk preflight, refresh/serve locks (runaway 325 GB `link_lists.bin`) | Complete (PR #139) | Claude | `fix/index-write-guards` | `20261014-fix-index-write-guards.md` |
+| 2026-10-16 | feature | ChatGPT plugin 0.2.4 visibility and setup refinement | Complete — 0.2.4 submitted for review; follow-up fixes require 0.2.5 | Codex | `chore/plugin-024-cli-compat` | `20261016-feature-chatgpt-plugin-0-2-4.md` |
+| 2026-10-02 | Feature | CLI-first Pipecat plugin: setup, explore, build and deploy | Complete — 0.2.3 accepted/published (user-confirmed); fresh setup/Work activation unqualified | Codex | `feature/chatgpt-local-plugin` | [Plan](20261002-feature-chatgpt-local-plugin.md) |
+| 2026-10-02 | chore | Security update: PyJWT 2.15.0; integrates PR #137 (PR #136) | Complete (v0.8.1; PR #136) | Dependabot / vr000m | `dependabot/uv/pyjwt-2.15.0` | _(no plan file)_ |
+| 2026-10-02 | chore | Security updates: urllib3 2.8.0 and OAuthLib 4.0.0 (PR #137) | Complete (v0.8.1; PR #137; integrated via #136) | Dependabot / vr000m | `dependabot/uv/urllib3-2.8.0` | _(no plan file)_ |
+| 2026-09-09 | chore | Migrate `mcp` Python SDK 1.x → 2.x (lowlevel `Server` API rewrite; issue #127) | Complete (v0.8.0; PR #132) | Claude | `chore/mcp-sdk-2x-migration` | `20260909-chore-mcp-sdk-2x-migration.md` |
 | 2026-08-27 | feature | `install` registers Claude Code at `user` scope so the server covers every directory (an existing entry is still repaired at its current scope); hardened through a review-gauntlet pass (cwd module-shadowing RCE fix, cwd `.env` allowlist fix, `unknown`-state correctness fix) | Complete (v0.6.0; PR #121) | markbackman | `mb/register-claude-at-user-scope` | `20260803-fix-mcp-server-command-pinning.md` |
 | 2026-08-22 | docs | Clarify uv install step + generic MCP client wiring in `docs/README.md` | Complete (PR #118) | vr000m | `docs/mcp-install-clarity` | _(no plan file)_ |
 | 2026-08-18 | feature | `--framework-version latest` resolves the newest release tag; hardened through an 11-round adversarial review gauntlet (deprecation-map/provenance crash-safety, tag-resolution edge cases, cleanup bookkeeping) | Complete (PR #116) | vr000m | `feature/framework-version-latest` | `20260331-feature-version-aware-indexing.md` |
@@ -16,7 +27,7 @@
 | 2026-08-03 | fix | Pin the registered MCP server command to the installed interpreter (bare console-script name fails to start outside the installing shell) | Complete (PR #109) | markbackman | `fix/mcp-server-command-pinning` | `20260803-fix-mcp-server-command-pinning.md` |
 | 2026-07-27 | chore | Release 0.4.0 — rename the CLI bridge to `pipecat context-hub` (alias `ch`) | Complete (PR #106) | markbackman | `rename/context-hub-command` | _(no plan file)_ |
 | 2026-07-26 | chore | Release 0.3.0 — `pipecat mcp` CLI bridge, `install` command, indexed-framework-version tracking, version-aware `check_deprecation` | Complete (v0.3.0) | vr000m | `release/0.3.0` | _(no plan file)_ |
-| 2026-07-25 | feature | Expose the hub as an external API and mount it in the Pipecat CLI (`pipecat mcp`) | Complete (hub side; v0.3.0; PR #101); pipecat-side work pending | markbackman | `feature/indexed-framework-version` | `20260725-feature-pipecat-cli-plugin.md` |
+| 2026-07-25 | feature | Expose the hub as an external API and mount it in the Pipecat CLI (`pipecat mcp`) | Complete (hub side; v0.3.0; PR #101 merged); pipecat-side work pending | markbackman | `feature/indexed-framework-version` | `20260725-feature-pipecat-cli-plugin.md` |
 | 2026-06-14 | chore | Release 0.2.1 — registry-backed `check_deprecation` + `get_doc` section/title fixes | Complete (v0.2.1) | vr000m | `chore/release-0-2-1` | _(no plan file)_ |
 | 2026-06-13 | feat | Consume upstream `deprecations.json` as the deprecation source (prose parser removed) | Complete (v0.2.1; PR #85) | vr000m | `feat/deprecation-registry` | `20260612-feature-deprecations-json-consumer.md` |
 | 2026-06-13 | fix | `get_doc()` sections always empty — derive from page headings (fence-aware, no re-index) | Complete (v0.2.1; PR #83) | vr000m | `fix/get-doc-sections-from-headings` | _(no plan file)_ |

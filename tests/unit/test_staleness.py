@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
 from pipecat_context_hub.cli import main
+from pipecat_context_hub.shared.interfaces import IndexUnavailableError
 from pipecat_context_hub.shared.staleness import annotate_response, staleness_info
 
 runner = CliRunner()
@@ -98,6 +100,16 @@ class TestAnnotateResponse:
         raw = '{"hits": []}'
         assert annotate_response(raw, store) == raw
 
+    def test_index_unavailable_is_skipped_quietly(self, caplog):
+        """A refresh starting between the handler and the footer is an expected
+        race: the response survives and nothing is logged as an error."""
+        store = MagicMock()
+        store.get_all_metadata.side_effect = IndexUnavailableError("retry in 60-120 seconds")
+        raw = '{"hits": []}'
+        with caplog.at_level("WARNING", logger="pipecat_context_hub.shared.staleness"):
+            assert annotate_response(raw, store) == raw
+        assert caplog.records == []
+
     def test_no_parsed_shortcut_parameter(self):
         """``annotate_response`` takes exactly ``(result_json, index_store)``.
 
@@ -155,19 +167,19 @@ class TestBothFrontDoors:
         retriever.deprecation_map = None
 
         async def run() -> str:
-            server = server_main.create_server(retriever, store)
-            # call_tool is registered via decorator; reach it through the
-            # server's request handler for CallToolRequest.
+            server = server_main.create_server(
+                retriever, store, configured_repos=frozenset(), tainted_repos=frozenset()
+            )
             from mcp import types
 
-            req = types.CallToolRequest(
-                method="tools/call",
-                params=types.CallToolRequestParams(
-                    name="check_deprecation", arguments={"symbol": "X"}
-                ),
+            entry = server.get_request_handler("tools/call")
+            assert entry is not None
+            result = await entry.handler(
+                cast(Any, None),
+                types.CallToolRequestParams(name="check_deprecation", arguments={"symbol": "X"}),
             )
-            result = await server.request_handlers[types.CallToolRequest](req)
-            content = result.root.content  # type: ignore[union-attr]
+            assert isinstance(result, types.CallToolResult)
+            content = result.content
             block = content[0]
             assert isinstance(block, types.TextContent)
             return block.text
